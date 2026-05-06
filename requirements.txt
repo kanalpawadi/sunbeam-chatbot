@@ -1,0 +1,13 @@
+streamlit
+python-dotenv
+chromadb==0.5.3
+langchain
+langchain-openai
+langchain-groq
+langchain-huggingface
+langchain-community
+sentence-transformers
+langgraph
+groq
+protobuf==4.25.3
+einops
