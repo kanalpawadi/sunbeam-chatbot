@@ -83,7 +83,7 @@ collection = load_chromadb()
 @st.cache_resource
 def load_embed_model():
     return HuggingFaceEmbeddings(
-        model_name="nomic-ai/nomic-embed-text-v1",
+        model_name="nomic-ai/nomic-embed-text-v1.5",
         model_kwargs={"trust_remote_code": True},
         encode_kwargs={"normalize_embeddings": True},
     )
@@ -120,9 +120,16 @@ def search_knowledge_base(query: str) -> str:
 def ask_groq(user_question: str) -> str:
     context = search_knowledge_base(user_question)
 
-    prompt = f"""You are Sunbeam Institute's official AI assistant.
-Answer ONLY using the data provided below. Do not use your own knowledge.
-If the answer is not in the data, say: "No data found for this query."
+    prompt = f"""You are Sunbeam Institute of Information Technology's official AI assistant.
+
+STRICT RULES:
+1. Answer ONLY using the SUNBEAM DATA provided below.
+2. Do NOT say "No data found" if relevant data exists — use what is provided.
+3. Treat "Sunbeam Infotech", "Sunbeam Institute", and "Sunbeam" as the same organization.
+4. Give direct, complete, and well-structured answers.
+5. If the question is completely unrelated to Sunbeam, reply: "Please ask a question related to Sunbeam Institute."
+6. If truly no relevant data exists in the provided context, say: "Sorry, I don't have that information."
+7. Never make up information not present in the data.
 
 SUNBEAM DATA:
 {context}
@@ -160,19 +167,19 @@ st.markdown("""
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     if st.button("About Sunbeam", type="primary", use_container_width=True):
-        st.session_state.pending_query = "Give me full information about Sunbeam infotech Institute"
+        st.session_state.pending_query = "Give me full information about Sunbeam Institute of Information Technology"
 with col2:
     if st.button("Core Java Course", type="primary", use_container_width=True):
         st.session_state.pending_query = "Give me full information of Core Java course"
 with col3:
     if st.button("Internships", type="primary", use_container_width=True):
-        st.session_state.pending_query = "Give me full information about internship programs provided at sunbeam."
+        st.session_state.pending_query = "Give me full information about internship programs provided at Sunbeam."
 with col4:
     if st.button("Location", type="primary", use_container_width=True):
-        st.session_state.pending_query = "Give me full information about location at sunbeam."
+        st.session_state.pending_query = "Give me full information about the location of Sunbeam Institute."
 with col5:
     if st.button("All Courses", type="primary", use_container_width=True):
-        st.session_state.pending_query = "Give me full information about all courses provided at sunbeam."
+        st.session_state.pending_query = "Give me a list of all courses provided at Sunbeam Institute."
 
 
 # ── Display existing messages ──────────────────────────────────────────────────
@@ -182,7 +189,7 @@ for chat in messages:
 
 
 # ── Handle Input ───────────────────────────────────────────────────────────────
-user_question = st.chat_input("Ask about sunbeam")
+user_question = st.chat_input("Ask about Sunbeam...")
 
 if st.session_state.pending_query:
     user_question = st.session_state.pending_query
