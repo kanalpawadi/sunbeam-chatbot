@@ -1,6 +1,6 @@
 streamlit
 python-dotenv
-chromadb==0.5.3
+chromadb==1.5.9
 langchain
 langchain-openai
 langchain-groq
@@ -12,4 +12,3 @@ groq
 protobuf==4.25.3
 einops
 torchvision
-transformers==4.40.0
