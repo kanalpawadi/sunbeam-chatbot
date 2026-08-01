@@ -1,28 +1,44 @@
 import streamlit as st
-from dotenv import load_dotenv
 import os
 import chromadb
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from groq import Groq
 
-load_dotenv()
+st.set_page_config(page_title="Sunbeam Chatbot", page_icon="💬", layout="wide")
 
-api_key = os.getenv("GROQ_API_KEY")
+# ── Secrets ─────────────────────────────────────────────────────────────────
+# On Streamlit Cloud these come from Settings -> Secrets (or local
+# .streamlit/secrets.toml, which must NEVER be committed to git).
+try:
+    api_key = st.secrets["GROQ_API_KEY"]
+    APP_USERNAME = st.secrets["APP_USERNAME"]
+    APP_PASSWORD = st.secrets["APP_PASSWORD"]
+except (KeyError, FileNotFoundError):
+    st.error(
+        "Missing required secrets. Please set GROQ_API_KEY, APP_USERNAME, "
+        "and APP_PASSWORD in your Streamlit secrets."
+    )
+    st.stop()
 
-# ── Session State ──────────────────────────────────────────────────────────────
+if not api_key:
+    st.error("GROQ_API_KEY is empty. Please check your Streamlit secrets.")
+    st.stop()
+
+
+# ── Session State ───────────────────────────────────────────────────────────
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "chats" not in st.session_state:
-    st.session_state.chats = {}
+    st.session_state.chats = {"Chat 1": []}
 if "current_chat" not in st.session_state:
     st.session_state.current_chat = "Chat 1"
-if st.session_state.current_chat not in st.session_state.chats:
-    st.session_state.chats[st.session_state.current_chat] = []
+if "chat_counter" not in st.session_state:
+    st.session_state.chat_counter = 1
 if "pending_query" not in st.session_state:
     st.session_state.pending_query = None
 
 
-# ── Login Page ─────────────────────────────────────────────────────────────────
+# ── Login Page ──────────────────────────────────────────────────────────────
 def login_page():
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -31,9 +47,8 @@ def login_page():
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         if st.button("Login", use_container_width=True):
-            if username == "sunbeam123" and password == "sunbeam@1810":
+            if username == APP_USERNAME and password == APP_PASSWORD:
                 st.session_state.logged_in = True
-                st.success("Login successful")
                 st.rerun()
             else:
                 st.error("Invalid username or password")
@@ -44,11 +59,12 @@ if not st.session_state.logged_in:
     st.stop()
 
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# ── Sidebar ─────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.subheader("User Menu")
     if st.button("New Chat"):
-        chat_id = f"Chat {len(st.session_state.chats) + 1}"
+        st.session_state.chat_counter += 1
+        chat_id = f"Chat {st.session_state.chat_counter}"
         st.session_state.chats[chat_id] = []
         st.session_state.current_chat = chat_id
         st.rerun()
@@ -56,30 +72,38 @@ with st.sidebar:
     st.divider()
     st.markdown("### Chats")
     with st.container(height=170):
-        for chat_id in st.session_state.chats:
-            if st.button(chat_id, key=chat_id):
+        for chat_id in list(st.session_state.chats.keys()):
+            if st.button(chat_id, key=f"chatbtn_{chat_id}"):
                 st.session_state.current_chat = chat_id
                 st.rerun()
 
     if st.button("Logout", type="primary"):
         st.session_state.logged_in = False
-        st.session_state.chats = {}
-        st.session_state.current_chat = None
+        st.session_state.chats = {"Chat 1": []}
+        st.session_state.current_chat = "Chat 1"
+        st.session_state.chat_counter = 1
+        st.session_state.pending_query = None
         st.rerun()
 
 
-# ── ChromaDB ───────────────────────────────────────────────────────────────────
+# ── ChromaDB ────────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_chromadb():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DB_PATH = os.path.join(BASE_DIR, "knowledge_base")
-    db = chromadb.PersistentClient(path=DB_PATH)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(base_dir, "knowledge_base")
+    if not os.path.isdir(db_path):
+        st.error(
+            "knowledge_base folder not found next to sunbeam_chatbot.py. "
+            "Make sure it is committed to the GitHub repo."
+        )
+        st.stop()
+    db = chromadb.PersistentClient(path=db_path)
     return db.get_or_create_collection("Sunbeam_Data")
 
 collection = load_chromadb()
 
 
-# ── Embedding Model ────────────────────────────────────────────────────────────
+# ── Embedding Model ─────────────────────────────────────────────────────────
 @st.cache_resource
 def load_embed_model():
     return HuggingFaceEmbeddings(
@@ -91,7 +115,7 @@ def load_embed_model():
 embed_model = load_embed_model()
 
 
-# ── Groq Client ───────────────────────────────────────────────────────────────
+# ── Groq Client ─────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_groq_client():
     return Groq(api_key=api_key)
@@ -99,7 +123,7 @@ def load_groq_client():
 groq_client = load_groq_client()
 
 
-# ── Search ChromaDB ────────────────────────────────────────────────────────────
+# ── Search ChromaDB ─────────────────────────────────────────────────────────
 def search_knowledge_base(query: str) -> str:
     query_embedding = embed_model.embed_query(query)
     results = collection.query(
@@ -111,12 +135,12 @@ def search_knowledge_base(query: str) -> str:
 
     context = ""
     for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-        source = meta.get("source", "Sunbeam")
+        source = meta.get("source", "Sunbeam") if meta else "Sunbeam"
         context += f"\n[{source}]\n{doc}\n"
     return context
 
 
-# ── Ask Groq ──────────────────────────────────────────────────────────────────
+# ── Ask Groq ────────────────────────────────────────────────────────────────
 def ask_groq(user_question: str) -> str:
     context = search_knowledge_base(user_question)
 
@@ -139,30 +163,34 @@ USER QUESTION:
 
 ANSWER:"""
 
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.2,
-        max_tokens=1024,
-    )
-    return response.choices[0].message.content
+    try:
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=1024,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Sorry, something went wrong while contacting the AI service: {e}"
 
 
-# ── Chat UI ────────────────────────────────────────────────────────────────────
+# ── Chat UI ─────────────────────────────────────────────────────────────────
 current_chat = st.session_state.current_chat
 messages = st.session_state.chats[current_chat]
 
 st.title("Sunbeam Chatbot")
-st.markdown("""
+st.markdown(
+    """
     <style>
     div.stButton > button {
         height: 60px;
         width: 100%;
     }
     </style>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
 
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
@@ -182,13 +210,13 @@ with col5:
         st.session_state.pending_query = "Give me a list of all courses provided at Sunbeam Institute."
 
 
-# ── Display existing messages ──────────────────────────────────────────────────
+# ── Display existing messages ──────────────────────────────────────────────
 for chat in messages:
     with st.chat_message(chat["role"]):
         st.markdown(chat["content"])
 
 
-# ── Handle Input ───────────────────────────────────────────────────────────────
+# ── Handle Input ────────────────────────────────────────────────────────────
 user_question = st.chat_input("Ask about Sunbeam...")
 
 if st.session_state.pending_query:
