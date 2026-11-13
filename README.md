@@ -1,17 +1,44 @@
-# Sunbeam Assistant
+# ☀️ Sunbeam Assistant
 
-A RAG chatbot for [Sunbeam Institute](https://sunbeaminfo.in): a React chat UI, a FastAPI +
-LangGraph agent, and a daily GitHub Action that scrapes the live website and refreshes the
-knowledge base.
+An AI chatbot for [Sunbeam Institute of Information Technology](https://sunbeaminfo.in) (Pune & Karad).
+Ask about courses, syllabus, batch dates, fees, internships, C-DAC PG programmes, branches and
+contact details. Answers come from Sunbeam's live website, refreshed automatically every day.
+
+**Live demo:** <https://kanalpawadi.github.io/sunbeam-chatbot/>
+&nbsp;·&nbsp; **API:** <https://sunbeam-chatbot-api.onrender.com/api/info>
+
+> The API runs on Render's free plan and sleeps when idle, so the first question after a quiet
+> spell can take up to a minute. The app tells you while it wakes up.
+
+## Features
+
+- **Streaming answers** with Markdown tables for fees, batches and comparisons
+- **Source links** under every answer, pointing to the exact Sunbeam pages used
+- **Always current**: a GitHub Action scrapes the website daily and refreshes the knowledge base
+- **Grounded**: the agent answers only from Sunbeam data, says when something isn't listed, and
+  politely declines unrelated questions
+- **Chat history** saved in the browser, new chat (`Ctrl+K`), stop, retry and copy
+- **Light and dark themes**, and a layout made for phones as well as desktops
+
+## How it works
 
 ```
 sunbeaminfo.in / .com ──► pipeline/scrape.py ──► data/documents.json, data/catalog.json
    (public JSON API)       pipeline/ingest.py ──► data/knowledge.json   (Gemini embeddings)
                                                           │
-React (frontend/) ◄── streamed answer ── FastAPI (backend/) ◄┘  in-memory ChromaDB
-                                         LangGraph agent + Groq LLM
-                                         tools: search_sunbeam, list_courses
+React (GitHub Pages) ◄── streamed answer ── FastAPI (Render) ◄┘  in-memory ChromaDB
+                                            LangGraph agent + Groq LLM
+                                            tools: search_sunbeam, list_courses
 ```
+
+1. **Scrape**: the Sunbeam website loads its content from a public JSON API. The scraper reads
+   the same endpoints (courses, batches, fees, syllabus, branches, FAQs, about, contact) and
+   turns each record into a clean text document.
+2. **Embed**: documents are split into chunks and embedded with Google Gemini. Only chunks whose
+   text changed are re-embedded, so daily runs stay within the free tier.
+3. **Answer**: a LangGraph agent on Groq decides which tool to call. `search_sunbeam` does a
+   vector search in ChromaDB; `list_courses` returns the full catalog with fees and next batch.
+   The reply streams to the browser as Server-Sent Events.
 
 | Part | Tech |
 | --- | --- |
@@ -19,68 +46,67 @@ React (frontend/) ◄── streamed answer ── FastAPI (backend/) ◄┘  in
 | Backend | FastAPI, LangGraph / LangChain agent, ChromaDB |
 | LLM | Groq `openai/gpt-oss-20b` |
 | Embeddings | Google Gemini `gemini-embedding-001` (768 dims) |
-| Data refresh | GitHub Actions, daily |
+| Hosting | GitHub Pages (UI) + Render (API) |
+| Automation | GitHub Actions: daily data refresh, Pages deploy, CI |
 
-## Setup
+## Project structure
+
+```
+backend/      FastAPI app (main.py), LangGraph agent and tools (agent.py), vector store (store.py)
+frontend/     React app (src/App.tsx, src/components.tsx, src/api.ts)
+pipeline/     scrape.py (website -> documents), ingest.py (chunks -> Gemini embeddings)
+shared/       config and Gemini embedding helper used by backend and pipeline
+data/         scraped documents, course catalog and knowledge base (updated by CI)
+render.yaml   Render blueprint for the API
+.github/      workflows: refresh-knowledge, deploy-pages, ci
+```
+
+## Run locally
+
+Requirements: Python 3.11, Node 22, a [Groq API key](https://console.groq.com/keys) and a
+[Gemini API key](https://aistudio.google.com/apikey).
 
 ```bash
 cp .env.example .env            # add GROQ_API_KEY and GOOGLE_API_KEY
 pip install -r requirements.txt
 cd frontend && npm install && cd ..
-```
 
-Keys: Groq at <https://console.groq.com/keys>, Gemini at <https://aistudio.google.com/apikey>.
-
-## Build the knowledge base
-
-```bash
 python -m pipeline.scrape       # fetch the current website data
-python -m pipeline.ingest       # chunk + embed (only changed chunks are re-embedded)
+python -m pipeline.ingest       # chunk + embed
+
+uvicorn backend.main:app --reload --port 8000     # API, from the repo root
+cd frontend && npm run dev                         # UI on http://localhost:5173
 ```
 
-## Run (development)
+To serve the UI and API from one server, run `npm run build` in `frontend/`, then start uvicorn;
+it serves the built app on <http://localhost:8000>.
 
-```bash
-uvicorn backend.main:app --reload --port 8000     # from the repo root
-cd frontend && npm run dev                         # http://localhost:5173
-```
+## Deploy
 
-## Run (single server)
+GitHub Pages only hosts static files, so the UI goes there and the Python API (which keeps the API
+keys secret) runs on Render. Both are free.
 
-```bash
-cd frontend && npm run build && cd ..
-uvicorn backend.main:app --port 8000              # UI + API on http://localhost:8000
-```
+1. **API on Render**: sign in at <https://render.com> with GitHub → **New → Blueprint** → pick
+   this repository. Render reads `render.yaml`; paste `GROQ_API_KEY` and `GOOGLE_API_KEY` when
+   asked.
+2. **UI on GitHub Pages**: **Settings → Pages → Source: GitHub Actions**, then run **Deploy
+   frontend to GitHub Pages** from the Actions tab. If your Render URL differs from
+   `https://sunbeam-chatbot-api.onrender.com`, set it as the Actions variable `API_URL`.
+3. **Daily refresh**: add `GOOGLE_API_KEY` under **Settings → Secrets and variables → Actions**.
 
-## Deploy (GitHub Pages + Render, both free)
-
-GitHub Pages can only host static files, so the UI goes there and the Python API (which keeps
-the API keys secret) runs on Render.
-
-1. **Backend on Render**: sign in at <https://render.com> with GitHub → **New → Blueprint** →
-   pick this repository. Render reads `render.yaml`; paste `GROQ_API_KEY` and `GOOGLE_API_KEY`
-   when asked. Your API URL looks like `https://sunbeam-chatbot-api.onrender.com`; open
-   `/api/info` on it to check it is up.
-2. **Frontend on GitHub Pages**: repository **Settings → Pages → Source: GitHub Actions**.
-   If Render gave your service a different URL, add it under **Settings → Secrets and variables
-   → Actions → Variables** as `API_URL`.
-3. Run **Deploy frontend to GitHub Pages** from the Actions tab (it also runs on every push that
-   changes `frontend/`). The site is published at `https://<owner>.github.io/sunbeam-chatbot/`.
-
-Render's free plan sleeps after 15 minutes without traffic; the first message after that takes
-up to a minute while it wakes, and the UI says so. The daily data refresh commits to `data/`,
-which makes Render redeploy with the fresh knowledge base.
+The API only accepts browser requests from the origins in `ALLOWED_ORIGINS` (set in
+`render.yaml`).
 
 ## GitHub Actions
 
-- **Refresh Sunbeam knowledge base** (`.github/workflows/refresh-knowledge.yml`): daily at
-  06:00 IST, or on demand from the Actions tab. Scrapes the site, re-embeds changed text and
-  commits `data/` only when something changed. Needs the repository secret `GOOGLE_API_KEY`
-  (Settings → Secrets and variables → Actions).
-- **Deploy frontend to GitHub Pages** (`.github/workflows/deploy-pages.yml`): builds the UI
-  with the backend URL and publishes it.
-- **CI** (`.github/workflows/ci.yml`): builds the frontend and import-checks the backend on
-  every push and pull request.
+| Workflow | When | What it does |
+| --- | --- | --- |
+| Refresh Sunbeam knowledge base | Daily 06:00 IST, or manually | Scrapes the site, re-embeds changed text, commits `data/` if anything changed; Render then redeploys with the fresh data |
+| Deploy frontend to GitHub Pages | Push to `frontend/`, or manually | Builds the React app and publishes it |
+| CI | Every push and pull request | Builds the frontend, import-checks the backend, smoke-tests the scraper |
 
-The backend reloads `data/knowledge.json` when the file changes, so a `git pull` on the server
-is enough to serve fresh data.
+## Developer
+
+Developed by **Kanal Pawadi** · [github.com/kanalpawadi](https://github.com/kanalpawadi)
+
+Course data belongs to Sunbeam Institute; always confirm fees and dates with the institute.

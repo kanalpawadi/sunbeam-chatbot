@@ -83,7 +83,7 @@ export function Sidebar(props: {
         onClick={props.onClose}
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[280px] flex-col border-r border-line bg-surface transition-transform duration-200 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-[280px] max-w-[85vw] flex-col border-r border-line bg-surface transition-transform duration-200 md:static md:translate-x-0 ${
           props.open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -159,6 +159,17 @@ export function Sidebar(props: {
               {props.dark ? <Sun size={17} /> : <Moon size={17} />}
             </IconButton>
           </div>
+          <p className="mt-2.5 px-1 text-[11px] text-faint">
+            Developed by{" "}
+            <a
+              href="https://github.com/kanalpawadi"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-muted hover:text-ink"
+            >
+              Kanal Pawadi
+            </a>
+          </p>
         </div>
       </aside>
     </>
@@ -178,32 +189,35 @@ const CHIPS = ["All courses", "PreCAT preparation", "C-DAC PG programmes", "Inte
 
 export function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   return (
-    <div className="m-auto w-full max-w-3xl px-4 py-10">
+    <div className="m-auto w-full max-w-3xl px-4 py-6 sm:py-10">
       <div className="rise">
-        <SunMark size={52} spin />
-        <h1 className="mt-6 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-[2.6rem]">
+        <span className="hidden sm:block">
+          <SunMark size={52} spin />
+        </span>
+        <h1 className="font-display text-[1.75rem] leading-tight font-semibold tracking-tight sm:mt-6 sm:text-[2.6rem]">
           Ask anything about <span className="text-sun-ink">Sunbeam</span>.
         </h1>
         <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-muted">
-          Courses, syllabus, batch dates, fees, internships, C-DAC programmes and branches. Answers come from
-          Sunbeam's live website data, refreshed every day.
+          Courses, syllabus, batch dates, fees, internships, C-DAC programmes and branches.
+          <span className="hidden sm:inline"> Answers come from Sunbeam's live website data, refreshed every day.</span>
         </p>
       </div>
 
-      <div className="rise mt-8 grid gap-3 sm:grid-cols-2" style={{ animationDelay: "60ms" }}>
+      <div className="rise mt-6 grid grid-cols-2 gap-2.5 sm:mt-8 sm:gap-3" style={{ animationDelay: "60ms" }}>
         {SUGGESTIONS.map(({ icon: Icon, title, prompt }) => (
           <button
             key={title}
             type="button"
             onClick={() => onPick(prompt)}
-            className="group flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 text-left transition hover:-translate-y-0.5 hover:border-sun/50 hover:shadow-[0_8px_24px_-12px_rgba(232,137,12,0.35)] focus-visible:outline-2 focus-visible:outline-sun"
+            title={prompt}
+            className="group flex flex-col items-start gap-2.5 rounded-2xl border border-line bg-surface p-3.5 text-left transition hover:-translate-y-0.5 hover:border-sun/50 hover:shadow-[0_8px_24px_-12px_rgba(232,137,12,0.35)] focus-visible:outline-2 focus-visible:outline-sun sm:flex-row sm:gap-3 sm:p-4"
           >
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-sun-soft text-sun-ink transition group-hover:bg-sun group-hover:text-white">
               <Icon size={18} />
             </span>
             <span>
-              <span className="block text-sm font-semibold">{title}</span>
-              <span className="mt-0.5 block text-[0.83rem] leading-snug text-muted">{prompt}</span>
+              <span className="block text-sm leading-snug font-semibold">{title}</span>
+              <span className="mt-0.5 hidden text-[0.83rem] leading-snug text-muted sm:block">{prompt}</span>
             </span>
           </button>
         ))}
@@ -290,12 +304,16 @@ export function MessageView(props: {
   const waiting = streaming && !m.content;
   return (
     <div className="rise flex gap-3">
-      <div className="mt-0.5 shrink-0">
+      {/* Phones: no avatar column, so answers and tables get the full width. */}
+      <div className="mt-0.5 hidden shrink-0 sm:block">
         <SunMark size={30} spin={streaming} />
       </div>
       <div className="min-w-0 flex-1">
         {waiting && (
-          <div className="flex h-8 items-center text-sm font-medium">
+          <div className="flex min-h-8 items-center gap-2 text-sm font-medium">
+            <span className="sm:hidden">
+              <SunMark size={22} spin />
+            </span>
             <span className="shimmer">{status ?? "Thinking"}…</span>
           </div>
         )}
@@ -352,12 +370,26 @@ export function MessageView(props: {
 
 /* ---------- composer ---------- */
 
+function useIsNarrow() {
+  const query = "(max-width: 639px)";
+  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return narrow;
+}
+
 export function Composer(props: { busy: boolean; onSend: (text: string) => void; onStop: () => void; focusKey: string }) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
+  const narrow = useIsNarrow();
 
   useEffect(() => {
-    ref.current?.focus();
+    // On phones, focusing would pop the keyboard over the suggestions; only focus on larger screens.
+    if (!window.matchMedia("(max-width: 639px)").matches) ref.current?.focus();
   }, [props.focusKey]);
 
   useEffect(() => {
@@ -385,8 +417,8 @@ export function Composer(props: { busy: boolean; onSend: (text: string) => void;
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-4 sm:pb-5">
-      <div className="flex items-end gap-2 rounded-2xl border border-line bg-raised p-2 pl-4 shadow-[0_10px_30px_-18px_rgba(27,34,54,0.35)] transition focus-within:border-sun/60">
+    <div className="mx-auto w-full max-w-3xl px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:pb-5">
+      <div className="flex items-end gap-2 rounded-2xl border border-line bg-raised p-1.5 pl-3.5 shadow-[0_10px_30px_-18px_rgba(27,34,54,0.35)] transition focus-within:border-sun/60 sm:p-2 sm:pl-4">
         <label htmlFor="ask" className="sr-only">
           Ask about Sunbeam
         </label>
@@ -402,8 +434,9 @@ export function Composer(props: { busy: boolean; onSend: (text: string) => void;
               submit();
             }
           }}
-          placeholder="Ask about courses, fees, batches, branches…"
-          className="max-h-[200px] min-h-[40px] flex-1 resize-none bg-transparent py-2 text-[0.95rem] leading-6 outline-none placeholder:text-faint"
+          placeholder={narrow ? "Ask about Sunbeam…" : "Ask about courses, fees, batches, branches…"}
+          enterKeyHint="send"
+          className="max-h-[200px] min-h-[40px] min-w-0 flex-1 resize-none bg-transparent py-2 text-base leading-6 outline-none placeholder:text-faint sm:text-[0.95rem]"
         />
         {props.busy ? (
           <button
@@ -428,8 +461,18 @@ export function Composer(props: { busy: boolean; onSend: (text: string) => void;
           </button>
         )}
       </div>
-      <p className="mt-2 text-center text-[11px] text-faint">
-        Answers are generated from sunbeaminfo.in and sunbeaminfo.com. Confirm fees and dates with the institute.
+      <p className="mt-2 text-center text-[11px] leading-snug text-faint">
+        <span className="hidden sm:inline">Answers come from sunbeaminfo.in and sunbeaminfo.com; confirm fees and dates with the institute · </span>
+        <span className="sm:hidden">Verify fees &amp; dates · </span>
+        Developed by{" "}
+        <a
+          href="https://github.com/kanalpawadi"
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-muted underline decoration-sun/40 underline-offset-2 hover:text-ink hover:decoration-sun"
+        >
+          Kanal Pawadi
+        </a>
       </p>
     </div>
   );

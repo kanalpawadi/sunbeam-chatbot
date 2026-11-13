@@ -50,9 +50,12 @@
 }
 
 html,
-body,
+body {
+  height: 100%;
+}
 #root {
   height: 100%;
+  height: 100dvh; /* follows mobile browser toolbars as they show/hide */
 }
 
 body {
@@ -107,13 +110,31 @@ body {
 .prose-chat hr { border-color: var(--line); }
 .prose-chat .table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--line);
   border-radius: 12px;
 }
 .prose-chat table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+}
+/* Cells keep whole words; narrow screens scroll the table sideways instead of squashing it. */
+.prose-chat td {
+  overflow-wrap: normal;
+  word-break: normal;
+  min-width: 6.5rem;
+  max-width: 16rem;
+}
+.prose-chat td:first-child {
+  min-width: 5.5rem;
+}
+@media (max-width: 639px) {
+  .prose-chat { font-size: 0.93rem; }
+  .prose-chat table { font-size: 0.8rem; }
+  .prose-chat th,
+  .prose-chat td { padding: 0.5em 0.65em; }
 }
 .prose-chat th {
   text-align: left;

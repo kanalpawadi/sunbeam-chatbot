@@ -58,7 +58,9 @@ export default function App() {
   const lastContent = messages[messages.length - 1]?.content;
   useEffect(() => {
     const el = scrollRef.current;
-    if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    if (messages.length === 0) el.scrollTop = 0; // empty state starts at the top
+    else if (stickToBottom.current) el.scrollTop = el.scrollHeight;
   }, [messages.length, lastContent, busy?.status]);
 
   const run = useCallback(
@@ -154,7 +156,7 @@ export default function App() {
       />
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line px-3 md:hidden">
+        <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-line bg-paper/90 px-2 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
           <button
             type="button"
             aria-label="Open menu"
@@ -186,7 +188,7 @@ export default function App() {
           {messages.length === 0 ? (
             <EmptyState onPick={send} />
           ) : (
-            <div className="mx-auto w-full max-w-3xl space-y-7 px-4 pt-8 pb-6">
+            <div className="mx-auto w-full max-w-3xl space-y-6 px-3.5 pt-5 pb-4 sm:space-y-7 sm:px-4 sm:pt-8 sm:pb-6">
               {messages.map((m, i) => (
                 <MessageView
                   key={m.id}
