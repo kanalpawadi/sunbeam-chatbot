@@ -32,8 +32,12 @@ export type StreamEvent =
   | { type: "error"; message: string }
   | { type: "done" };
 
+// Empty in development (Vite proxies /api) and when the backend serves the UI itself.
+// For GitHub Pages it is the Render URL, set at build time via VITE_API_URL.
+export const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+
 export async function fetchInfo(): Promise<Info> {
-  const res = await fetch("/api/info");
+  const res = await fetch(`${API_BASE}/api/info`);
   if (!res.ok) throw new Error(`info ${res.status}`);
   return res.json();
 }
@@ -43,7 +47,7 @@ export async function streamChat(
   onEvent: (e: StreamEvent) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const res = await fetch("/api/chat", {
+  const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages: history }),

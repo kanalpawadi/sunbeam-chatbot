@@ -148,8 +148,12 @@ export function Sidebar(props: {
           <div className="flex items-center gap-2 rounded-xl bg-paper px-3 py-2.5">
             <span className={`size-2 shrink-0 rounded-full ${info?.ready ? "bg-emerald-500" : "bg-faint"}`} />
             <div className="min-w-0 flex-1 text-xs leading-snug">
-              <div className="font-semibold">{info?.ready ? `${info.courses} courses indexed` : "Connecting…"}</div>
-              <div className="truncate text-muted">Website data synced {timeAgo(info?.updated_at ?? null)}</div>
+              <div className="font-semibold">
+                {info?.ready ? `${info.courses} courses indexed` : info ? "Knowledge base not built" : "Waking up server…"}
+              </div>
+              <div className="truncate text-muted">
+                {info ? `Website data synced ${timeAgo(info.updated_at)}` : "Free hosting may take up to a minute"}
+              </div>
             </div>
             <IconButton label={props.dark ? "Switch to light theme" : "Switch to dark theme"} onClick={props.onToggleTheme}>
               {props.dark ? <Sun size={17} /> : <Moon size={17} />}

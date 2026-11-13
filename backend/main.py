@@ -6,6 +6,7 @@ Prod:  build the frontend (npm run build) and the same server also serves fronte
 import asyncio
 import json
 import logging
+import os
 import re
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -28,11 +29,20 @@ IST = timezone(timedelta(hours=5, minutes=30))
 FRONTEND_DIST = CHATBOT_DIR / "frontend" / "dist"
 
 app = FastAPI(title="Sunbeam Chatbot API")
+# Browsers may only call this API from these sites (the GitHub Pages frontend + local dev).
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "https://kanalpawadi.github.io,http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 

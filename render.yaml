@@ -1,0 +1,27 @@
+# Render Blueprint for the backend API (https://render.com/docs/blueprint-spec).
+# New -> Blueprint -> pick this repository. Render asks for the two API keys on first deploy.
+services:
+  - type: web
+    name: sunbeam-chatbot-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    # Redeploy only when the API or its data changes (the daily refresh commits data/).
+    buildFilter:
+      paths:
+        - backend/**
+        - shared/**
+        - data/**
+        - render.yaml
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://kanalpawadi.github.io

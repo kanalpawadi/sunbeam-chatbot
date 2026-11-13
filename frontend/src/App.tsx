@@ -15,10 +15,20 @@ export default function App() {
   const stickToBottom = useRef(true);
 
   useEffect(() => {
-    const load = () => fetchInfo().then(setInfo).catch(() => setInfo(null));
+    // Free hosting sleeps when idle: retry quickly until the server is awake, then refresh slowly.
+    let timer: ReturnType<typeof setTimeout>;
+    const load = () =>
+      fetchInfo()
+        .then((i) => {
+          setInfo(i);
+          timer = setTimeout(load, 5 * 60_000);
+        })
+        .catch(() => {
+          setInfo(null);
+          timer = setTimeout(load, 5_000);
+        });
     load();
-    const t = setInterval(load, 5 * 60_000);
-    return () => clearInterval(t);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -61,6 +71,10 @@ export default function App() {
       abortRef.current = ctrl;
       const patch = (fn: (m: Message) => Message) =>
         updateMessages(chatId, (ms) => ms.map((m) => (m.id === msgId ? fn(m) : m)));
+      const wakeHint = setTimeout(
+        () => setBusy((b) => (b && !b.status ? { ...b, status: "Waking up the server, this can take up to a minute" } : b)),
+        6000,
+      );
 
       try {
         await streamChat(
@@ -84,6 +98,7 @@ export default function App() {
           }));
         }
       } finally {
+        clearTimeout(wakeHint);
         abortRef.current = null;
         setBusy(null);
       }
