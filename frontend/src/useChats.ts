@@ -23,7 +23,8 @@ function load(): Chat[] {
 
 export function useChats() {
   const [chats, setChats] = useState<Chat[]>(load);
-  const [activeId, setActiveId] = useState<string | null>(() => load()[0]?.id ?? null);
+  // Every visit opens on a fresh chat; earlier conversations stay in the sidebar.
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
