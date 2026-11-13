@@ -244,7 +244,8 @@ function Markdown({ text }: { text: string }) {
         ),
       }}
     >
-      {text}
+      {/* Raw HTML isn't rendered; models sometimes put <br> in table cells. */}
+      {text.replace(/<br\s*\/?>/gi, " · ")}
     </ReactMarkdown>
   );
 }
@@ -360,10 +361,20 @@ export function Composer(props: { busy: boolean; onSend: (text: string) => void;
   }, [props.focusKey]);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "0px";
-    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    const fit = () => {
+      const el = ref.current;
+      if (!el) return;
+      // Empty: fall back to one row (Chrome counts a wrapped placeholder in scrollHeight).
+      if (!el.value) {
+        el.style.height = "";
+        return;
+      }
+      el.style.height = "0px";
+      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
   }, [text]);
 
   const submit = () => {
