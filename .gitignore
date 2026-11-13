@@ -1,5 +1,21 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
 __pycache__/
 *.pyc
 venv/
-.env
-.streamlit/secrets.toml
+.venv/
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# os / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
