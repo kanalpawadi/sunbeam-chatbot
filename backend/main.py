@@ -3,8 +3,10 @@
 Dev:   (from the repo root)  uvicorn backend.main:app --reload --port 8000
 Prod:  build the frontend (npm run build) and the same server also serves frontend/dist.
 """
+import asyncio
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Literal
@@ -59,6 +61,19 @@ def sse(event: dict) -> str:
     return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
 
+def text_of(msg) -> str:
+    if isinstance(msg.content, str):
+        return msg.content
+    return "".join(p.get("text", "") for p in msg.content if isinstance(p, dict))
+
+
+async def typewriter(text: str):
+    """Send a complete reply in small pieces so the UI still renders it progressively."""
+    for match in re.finditer(r"\S+\s*|\s+", text):
+        yield match.group(0)
+        await asyncio.sleep(0.008)
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True}
@@ -98,15 +113,21 @@ async def chat(req: ChatRequest):
             agent = agent_for(datetime.now(IST).date().isoformat())
             async for msg, meta in agent.astream({"messages": history}, stream_mode="messages"):
                 if isinstance(msg, AIMessageChunk):
+                    # Token-level streaming (provider streams deltas).
                     for tc in msg.tool_call_chunks or []:
                         if tc.get("name"):
                             yield sse({"type": "status", "text": TOOL_LABELS.get(tc["name"], "Working")})
-                    if msg.content and not msg.tool_call_chunks:
-                        text = msg.content if isinstance(msg.content, str) else "".join(
-                            p.get("text", "") for p in msg.content if isinstance(p, dict)
-                        )
+                    if not msg.tool_call_chunks:
+                        text = text_of(msg)
                         if text:
                             yield sse({"type": "token", "text": text})
+                elif isinstance(msg, AIMessage):
+                    # Whole-message step (provider returned the full reply at once).
+                    for tc in msg.tool_calls or []:
+                        yield sse({"type": "status", "text": TOOL_LABELS.get(tc["name"], "Working")})
+                    if not msg.tool_calls:
+                        async for piece in typewriter(text_of(msg)):
+                            yield sse({"type": "token", "text": piece})
                 elif isinstance(msg, ToolMessage):
                     for s in msg.artifact or []:
                         if s not in sources:

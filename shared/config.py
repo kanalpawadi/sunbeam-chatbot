@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 CHATBOT_DIR = Path(__file__).resolve().parent.parent  # repository root
 
@@ -23,6 +23,11 @@ GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 
 def require_env(name: str) -> str:
     value = os.getenv(name, "").strip()
+    if not value:
+        # The key may have been added to .env after the process started.
+        value = (dotenv_values(CHATBOT_DIR / ".env").get(name) or "").strip()
+        if value:
+            os.environ[name] = value
     if not value:
         raise RuntimeError(
             f"{name} is not set. Add it to .env (local) or to the repository's "

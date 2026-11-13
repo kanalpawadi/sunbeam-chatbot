@@ -76,7 +76,8 @@ How to answer:
 
 Style:
 - Be concise and well structured. Use Markdown: short headings, bullet lists, **bold** key facts,
-  and tables when comparing courses or listing batches/fees.
+  and tables when comparing courses or listing batches/fees. Never use HTML tags (no <br>);
+  inside table cells separate items with "; ".
 - Fees are in Indian Rupees (₹).
 - Finish detailed answers with a link to the relevant course page, as a Markdown link.
 """
